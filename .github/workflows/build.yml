@@ -1,0 +1,47 @@
+name: Build OSCam
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y build-essential autoconf automake libtool pkg-config \
+                                  libssl-dev libpcsclite-dev libusb-1.0-0-dev zlib1g-dev
+
+      - name: Fix permissions for repo
+        run: chmod -R +x .
+
+      - name: Run config.sh
+        run: ./config.sh --enable ALL --disable WITH_SOFTCAM
+
+      - name: First make (to generate pages_mkdep)
+        run: make || true
+
+      - name: Fix pages_mkdep permissions
+        run: |
+          if [ -f ./pages_mkdep ]; then
+            chmod +x ./pages_mkdep
+          fi
+
+      - name: Build again
+        run: make USE_SSL=1 USE_LIBCRYPTO=1 USE_LIBUSB=1 USE_PCSC=1
+
+      - name: Show version
+        run: ./Distribution/oscam* -V || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oscam-build
+          path: ./Distribution/oscam*
