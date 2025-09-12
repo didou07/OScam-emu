@@ -35,69 +35,6 @@
 		// do something after poll
 	}
 
-	document.addEventListener('DOMContentLoaded', function(){
-		const hideDisabledSetting = '##HTTPHIDEUSERSDISABLED##' === '1';
-		const hideExpiredSetting = '##HTTPHIDEUSERSEXPIRED##' === '1';
-		const blurUsersSetting = '##HTTPBLURUSERSNAME##' === '1';
-
-		let hideExpired = window.tempHideExpired !== undefined ? window.tempHideExpired : hideExpiredSetting;
-		let hideDisabled = window.tempHideDisabled !== undefined ? window.tempHideDisabled : hideDisabledSetting;
-		let blurUsers = window.tempBlurUsers !== undefined ? window.tempBlurUsers : blurUsersSetting;
-
-		const expiredRows = document.querySelectorAll('tr.expired');
-		const disabledRows = document.querySelectorAll('tr.disabled');
-		const usernameCells = document.querySelectorAll('tbody.content tr td:nth-child(2)');
-		const ipCells = document.querySelectorAll('tbody.content tr td:nth-child(3)');
-
-		function applySettings() {
-			expiredRows.forEach(row => row.style.display = hideExpired ? 'none' : 'table-row');
-			disabledRows.forEach(row => row.style.display = hideDisabled ? 'none' : 'table-row');
-			usernameCells.forEach(cell => cell.style.filter = blurUsers ? 'blur(3px)' : 'none');
-			ipCells.forEach(cell => cell.style.filter = blurUsers ? 'blur(3px)' : 'none');
-		}
-
-		function toggleSetting(type) {
-			switch(type) {
-				case 'expired':
-					hideExpired = !hideExpired;
-					break;
-				case 'disabled':
-					hideDisabled = !hideDisabled;
-					break;
-				case 'blur':
-					blurUsers = !blurUsers;
-					break;
-			}
-			applySettings();
-			updateMenuText();
-		}
-
-		function updateMenuText() {
-			document.getElementById('hide_expired').textContent = hideExpired ? 'Show Expired' : 'Hide Expired';
-			document.getElementById('hide_disabled').textContent = hideDisabled ? 'Show Disabled' : 'Hide Disabled';
-			document.getElementById('blur_users').textContent = blurUsers ? 'Unblur Users' : 'Blur Users';
-		}
-
-		document.getElementById('hide_expired').onclick = (e) => {
-			e.preventDefault();
-			toggleSetting('expired');
-			return false;
-		};
-		document.getElementById('hide_disabled').onclick = (e) => {
-			e.preventDefault();
-			toggleSetting('disabled');
-			return false;
-		};
-		document.getElementById('blur_users').onclick = (e) => {
-			e.preventDefault();
-			toggleSetting('blur');
-			return false;
-		};
-
-		applySettings();
-		updateMenuText();
-	});
-
 	</script>
 ##TPLBODY##
 ##TPLMENU##
@@ -107,9 +44,9 @@
 			<LI CLASS="configmenu"><A HREF="userconfig.html?action=reinit">Reinit User DB</A></LI>
 			<LI CLASS="configmenu"><A HREF="userconfig.html?action=resetalluserstats" onclick="return confirm('Reset Userstats ?')">Reset Userstats</A></LI>
 			<LI CLASS="configmenu"><A TARGET="_blank" HREF="graph.svg?type=users&amp;hidelabels=1">Show Graphs</A></LI>
-			<LI CLASS="configmenu"><A HREF="#" id="hide_expired">Hide Expired</A></LI>
-			<LI CLASS="configmenu"><A HREF="#" id="hide_disabled">Hide Disabled</A></LI>
-			<LI CLASS="configmenu"><A HREF="#" id="blur_users">Blur Users</A></LI>
+			<LI CLASS="configmenu"><A HREF="##TOGGLE_EXPIRED_LINK##">##TOGGLE_EXPIRED_TEXT##</A></LI>
+			<LI CLASS="configmenu"><A HREF="##TOGGLE_DISABLED_LINK##">##TOGGLE_DISABLED_TEXT##</A></LI>
+			<LI CLASS="configmenu"><A HREF="##TOGGLE_BLUR_LINK##">##TOGGLE_BLUR_TEXT##</A></LI>
 ##TPLPOLLINGSET##
 		</UL>
 	</DIV>
