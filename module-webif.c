@@ -481,6 +481,54 @@ static void refresh_oscam(enum refreshtypes refreshtype)
 		break;
 	}
 }
+
+static char *blur_username(const char *name) {
+    if (!name || !*name) return cs_strdup("");
+    char *out = cs_strdup(name);
+    if (out && out[0]) {
+        for (int i = 1; out[i]; i++) out[i] = '*';
+    }
+    return out;
+}
+
+static char *blur_ip(const char *ip) {
+    if (!ip || !*ip) return cs_strdup("");
+    char *out = malloc(64);
+    if (!out) return cs_strdup(ip);
+
+    if (strchr(ip, '.')) {
+        snprintf(out, 64, "%.3s.***.***.***", ip);
+    } else if (strchr(ip, ':')) {
+        snprintf(out, 64, "%.4s:****:****:****", ip);
+    } else {
+        snprintf(out, 64, "***hidden***");
+    }
+    return out;
+}
+
+static void handle_display_params(struct uriparams *params) {
+    char *param;
+
+    param = getParam(params, "hideexpired");
+    if (cs_strlen(param) > 0) {
+        cfg.http_hide_users_expired = (atoi(param) == 2) ? 0 : atoi(param);
+    }
+
+    param = getParam(params, "hidedisabled");
+    if (cs_strlen(param) > 0) {
+        cfg.http_hide_users_disabled = (atoi(param) == 2) ? 0 : atoi(param);
+    }
+
+    param = getParam(params, "blurusers");
+    if (cs_strlen(param) > 0) {
+        cfg.http_blur_users_name = (atoi(param) == 2) ? 0 : atoi(param);
+    }
+}
+
+static int8_t is_user_filtered(struct s_auth *account, time_t now) {
+    return (cfg.http_hide_users_disabled && account->disabled) ||
+           (cfg.http_hide_users_expired && account->expirationdate && account->expirationdate < now);
+}
 /*
  * load historical values from ringbuffer and return it in the right order
  * as string. Value should be freed with free_mk_t()
@@ -1551,6 +1599,9 @@ static char *send_oscam_config_webif(struct templatevars *vars, struct uriparams
 	tpl_addVar(vars, TPLADD, "HTTPSAVEFULLSELECT", (cfg.http_full_cfg == 1) ? "checked" : "");
 	tpl_addVar(vars, TPLADD, "HTTPOVERWRITEBAKFILE", (cfg.http_overwrite_bak_file == 1) ? "checked" : "");
 	tpl_addVar(vars, TPLADD, "HTTPREADONLY", (cfg.http_readonly == 1) ? "checked" : "");
+	tpl_addVar(vars, TPLADD, "HTTPHIDEUSERSDISABLED", (cfg.http_hide_users_disabled == 1) ? "checked" : "");
+	tpl_addVar(vars, TPLADD, "HTTPHIDEUSERSEXPIRED", (cfg.http_hide_users_expired == 1) ? "checked" : "");
+	tpl_addVar(vars, TPLADD, "HTTPBLURUSERSNAME", (cfg.http_blur_users_name == 1) ? "checked" : "");
 
 
 #ifdef WITH_SSL
@@ -4524,6 +4575,7 @@ static char *send_oscam_user_config(struct templatevars *vars, struct uriparams 
 	char *user = getParam(params, "user");
 	int32_t found = 0;
 	uint8_t md5tmp[MD5_DIGEST_LENGTH];
+	handle_display_params(params);
 
 	if(!apicall)
 	{
@@ -4657,6 +4709,14 @@ static char *send_oscam_user_config(struct templatevars *vars, struct uriparams 
 	{
 		//clear for next client
 		total_users++;
+		if (is_user_filtered(account, now)) {
+			if (account->disabled) disabled_users++;
+			if (account->expirationdate && account->expirationdate < now) expired_users++;
+			if ((account->expirationdate && account->expirationdate < now) || account->disabled) {
+				expired_or_disabled_users++;
+			}
+			continue;
+		}
 		isactive = 1;
 
 		status = "offline";
@@ -4824,7 +4884,14 @@ static char *send_oscam_user_config(struct templatevars *vars, struct uriparams 
 			}
 
 			lastresponsetm = latestclient->cwlastresptime;
-			tpl_addVar(vars, TPLADD, "CLIENTIP", cs_inet_ntoa(latestclient->ip));
+			if (latestclient) {
+				char *client_ip = cs_inet_ntoa(latestclient->ip);
+				char *display_ip = cfg.http_blur_users_name ? blur_ip(client_ip) : client_ip;
+				tpl_addVar(vars, TPLADD, "CLIENTIP", display_ip);
+				if (display_ip != client_ip) free(display_ip);
+			} else {
+				tpl_addVar(vars, TPLADD, "CLIENTIP", "");
+			}
 			connected_users++;
 			casc_users = ll_count(latestclient->cascadeusers);
 			LL_ITER it = ll_iter_create(latestclient->cascadeusers);
@@ -4948,7 +5015,9 @@ static char *send_oscam_user_config(struct templatevars *vars, struct uriparams 
 		{
 			tpl_printf(vars, TPLAPPEND, "USERMD5", "%02x", md5tmp[z]);
 		}
-		tpl_addVar(vars, TPLADD, "USERNAME", xml_encode(vars, account->usr));
+		char *display_name = cfg.http_blur_users_name ? blur_username(account->usr) : account->usr;
+		tpl_addVar(vars, TPLADD, "USERNAME", xml_encode(vars, display_name));
+		if (display_name != account->usr) free(display_name);
 		tpl_addVar(vars, TPLADD, "USERNAMEENC", urlencode(vars, account->usr));
 			if(!existing_insert)
 			{
@@ -5015,8 +5084,28 @@ static char *send_oscam_user_config(struct templatevars *vars, struct uriparams 
 	tpl_addVar(vars, TPLADD, "DISPLAYREADERINFO", "hidden"); // no readerinfo in users
 	set_ecm_info(vars);
 
-	if(!apicall)
-		{ return tpl_getTpl(vars, "USERCONFIGLIST"); }
+	if (!apicall) {
+		char links[3][128];
+
+			snprintf(links[0], 128, "userconfig.html?hideexpired=%d&hidedisabled=%d&blurusers=%d",
+					cfg.http_hide_users_expired ? 2 : 1, cfg.http_hide_users_disabled, cfg.http_blur_users_name);
+			snprintf(links[1], 128, "userconfig.html?hideexpired=%d&hidedisabled=%d&blurusers=%d",
+					cfg.http_hide_users_expired, cfg.http_hide_users_disabled ? 2 : 1, cfg.http_blur_users_name);
+			snprintf(links[2], 128, "userconfig.html?hideexpired=%d&hidedisabled=%d&blurusers=%d",
+					cfg.http_hide_users_expired, cfg.http_hide_users_disabled, cfg.http_blur_users_name ? 2 : 1);
+
+			tpl_addVar(vars, TPLADD, "TOGGLE_EXPIRED_LINK", links[0]);
+			tpl_addVar(vars, TPLADD, "TOGGLE_DISABLED_LINK", links[1]); 
+			tpl_addVar(vars, TPLADD, "TOGGLE_BLUR_LINK", links[2]);
+
+			tpl_addVar(vars, TPLADD, "TOGGLE_EXPIRED_TEXT", 
+					cfg.http_hide_users_expired ? "Show Expired" : "Hide Expired");
+			tpl_addVar(vars, TPLADD, "TOGGLE_DISABLED_TEXT", 
+					cfg.http_hide_users_disabled ? "Show Disabled" : "Hide Disabled");
+			tpl_addVar(vars, TPLADD, "TOGGLE_BLUR_TEXT", 
+					cfg.http_blur_users_name ? "Show Real Names" : "Hide Names");
+
+		return tpl_getTpl(vars, "USERCONFIGLIST");}
 	else
 	{
 		if(!filter || clientcount > 0)

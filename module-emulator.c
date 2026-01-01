@@ -39,9 +39,7 @@
 #define CS_ERROR 0
 
 extern char cs_confdir[128];
-#ifdef MODULE_STREAMRELAY
 static int8_t emu_key_data_mutex_init = 0;
-#endif
 pthread_mutex_t emu_key_data_mutex;
 
 static void set_hexserial_to_version(struct s_reader *rdr)
@@ -174,6 +172,12 @@ static void refresh_entitlements(struct s_reader *rdr)
 		emu_add_entitlement(rdr, 0x2610, Biss2Keys.EmuKeys[i].provider, Biss2Keys.EmuKeys[i].key,
 							Biss2Keys.EmuKeys[i].keyName, Biss2Keys.EmuKeys[i].keyLength, 0);
 	}
+	
+	for (i = 0; i < ConaxKeys.keyCount; i++)
+	{
+		emu_add_entitlement(rdr, ConaxKeys.EmuKeys[i].provider, 0,
+							ConaxKeys.EmuKeys[i].key, ConaxKeys.EmuKeys[i].keyName, ConaxKeys.EmuKeys[i].keyLength, 0);
+	}
 
 	// RSA keys (EMM keys) for BISS2 mode CA
 	itr = ll_iter_create(rdr->ll_biss2_rsa_keys);
@@ -253,10 +257,10 @@ static int32_t emu_card_info(struct s_reader *rdr)
 	// Read BISS2 mode CA RSA keys from PEM files
 	biss_read_pem(rdr, BISS2_MAX_RSA_KEYS);
 
-	cs_log("Total keys in memory: W:%d V:%d N:%d I:%d F:%d G:%d O:%d P:%d T:%d A:%d",
+	cs_log("Total keys in memory: W:%d V:%d N:%d I:%d F:%d G:%d O:%d P:%d T:%d A:%d C:%d",
 			CwKeys.keyCount, ViKeys.keyCount, NagraKeys.keyCount, IrdetoKeys.keyCount, BissSWs.keyCount,
 			Biss2Keys.keyCount, OmnicryptKeys.keyCount, PowervuKeys.keyCount, TandbergKeys.keyCount,
-			StreamKeys.keyCount);
+			StreamKeys.keyCount, ConaxKeys.keyCount);
 
 	// Inform OSCam about all available keys.
 	// This is used for listing the "entitlements" in the webif's reader page.
@@ -732,6 +736,11 @@ const struct s_cardsystem reader_emu =
 
 static int32_t emu_reader_init(struct s_reader *UNUSED(reader))
 {
+	if (!emu_key_data_mutex_init)
+	{
+		SAFE_MUTEX_INIT(&emu_key_data_mutex, NULL);
+		emu_key_data_mutex_init = 1;
+	}
 #ifdef MODULE_STREAMRELAY
 	if (cfg.stream_relay_enabled && (stream_server_thread_init == 0))
 	{
@@ -748,13 +757,6 @@ static int32_t emu_reader_init(struct s_reader *UNUSED(reader))
 
 		start_thread("stream_key_delayer", stream_key_delayer, NULL, NULL, 1, 1);
 		cs_log("Stream key delayer initialized");
-	}
-
-	// Initialize mutex for exclusive access to key database and key file
-	if (!emu_key_data_mutex_init)
-	{
-		SAFE_MUTEX_INIT(&emu_key_data_mutex, NULL);
-		emu_key_data_mutex_init = 1;
 	}
 #endif
 	return CR_OK;
