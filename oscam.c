@@ -40,6 +40,7 @@
 #include "oscam-work.h"
 #include "reader-common.h"
 #include "module-gbox.h"
+#include "oscam-sched.h"
 
 #ifdef WITH_EMU
 	void add_emu_reader(void);
@@ -1936,6 +1937,8 @@ int32_t main(int32_t argc, char *argv[])
 	gbox_send_init_hello();
 
 	start_thread("card poll", (void *) &card_poll, NULL, NULL, 1, 1);
+	
+	oscam_sched_init();
 
 	for(i = 0; i < CS_MAX_MOD; i++)
 	{
@@ -2016,6 +2019,7 @@ int32_t main(int32_t argc, char *argv[])
 	free_readerdb();
 	config_free();
 	ssl_done();
+	oscam_sched_shutdown();
 
 	detect_valgrind();
 	if (!running_under_valgrind)

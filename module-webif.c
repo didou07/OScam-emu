@@ -138,8 +138,9 @@ static bool use_srvid2 = false;
 #define MNU_GBX_FEXPINF     28
 #define MNU_GBX_INFOLOG     29
 #define MNU_CFG_FSOFTCAMKEY 30
+#define MNU_CFG_TASK        31
 
-#define MNU_CFG_TOTAL_ITEMS 31 // sum of items above. Use it for "All inactive" in function calls too.
+#define MNU_CFG_TOTAL_ITEMS 32 // sum of items above. Use it for "All inactive" in function calls too.
 
 static void set_status_info_var(struct templatevars *vars, char *varname, int no_data, char *fmt, double value)
 {
@@ -792,6 +793,7 @@ static char *send_oscam_config_global(struct templatevars *vars, struct uriparam
 	else if(cfg.enableled == 2)
 		{ tpl_addVar(vars, TPLADD, "ENABLELEDSELECTED2", "selected"); }
 #endif
+	if(cfg.task_enabled == 1)  { tpl_addVar(vars, TPLADD, "TASKENABLEDCHECKED", "checked"); }
 
 	return tpl_getTpl(vars, "CONFIGGLOBAL");
 }
@@ -7521,6 +7523,7 @@ static char *send_oscam_files(struct templatevars * vars, struct uriparams * par
 #ifdef WITH_EMU
 		{ "SoftCam.Key",     MNU_CFG_FSOFTCAMKEY,FTYPE_CONFIG },  // id 30
 #endif
+		{ "task.cfg" ,       MNU_CFG_TASK,  FTYPE_CONFIG },       // id 31
 		{ NULL, 0, 0 },
 	};
 
@@ -7707,6 +7710,9 @@ static char *send_oscam_files(struct templatevars * vars, struct uriparams * par
 		tpl_addVar(vars, TPLADD, "WRITEPROTECTION", tpl_getTpl(vars, "WRITEPROTECTION"));
 		tpl_addVar(vars, TPLADD, "BTNDISABLED", "DISABLED");
 	}
+
+	if(cfg.task_enabled)
+		{ tpl_addVar(vars, TPLADD, "VIEW_FILEMENUTASK", tpl_getTpl(vars, "FILEMENUTASK")); }
 
 	if(!apicall)
 		{ return tpl_getTpl(vars, "FILE"); }

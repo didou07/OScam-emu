@@ -390,6 +390,7 @@ SRC-$(CONFIG_WITH_EMU) += module-emulator-nagravision.c
 SRC-$(CONFIG_WITH_EMU) += module-emulator-omnicrypt.c
 SRC-$(CONFIG_WITH_EMU) += module-emulator-powervu.c
 SRC-$(CONFIG_WITH_EMU) += module-emulator-viaccess.c
+SRC-$(CONFIG_WITH_EMU) += module-emulator-tvcas.c
 ifeq "$(CONFIG_WITH_EMU)" "y"
 ifeq "$(CONFIG_WITH_SOFTCAM)" "y"
 UNAME := $(shell uname -s)
@@ -439,6 +440,7 @@ SRC-$(CONFIG_WITH_LB) += module-stat.c
 SRC-$(CONFIG_WEBIF) += module-webif-lib.c
 SRC-$(CONFIG_WEBIF) += module-webif-tpl.c
 SRC-$(CONFIG_WEBIF) += module-webif.c
+SRC-$(CONFIG_WEBIF) += oscam-sched.c
 SRC-$(CONFIG_WEBIF) += webif/pages.c
 SRC-$(CONFIG_WITH_CARDREADER) += reader-common.c
 SRC-$(CONFIG_READER_BULCRYPT) += reader-bulcrypt.c

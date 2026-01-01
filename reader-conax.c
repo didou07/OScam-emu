@@ -275,7 +275,19 @@ static int32_t conax_card_init(struct s_reader *reader, ATR *newatr)
 				break;
 
 			case 0x28:
-				reader->caid = (cta_res[i + 2] << 8) | cta_res[i + 3];
+				card_caid = (cta_res[i + 2] << 8) | cta_res[i + 3];
+				
+				// use configured CAID if specified, otherwise use card's CAID
+				if(reader->ctab.ctnum > 0 && reader->ctab.ctdata[0].caid != 0)
+				{
+					reader->caid = reader->ctab.ctdata[0].caid;
+					rdr_log(reader, "configured %04X (card %04X)", reader->caid, card_caid);
+				}
+				else
+				{
+					reader->caid = card_caid;
+				}
+				break;
 		}
 	}
 
@@ -634,6 +646,8 @@ static int32_t conax_card_info(struct s_reader *reader)
 	uint32_t cxclass = 0;
 
 	cs_clear_entitlement(reader); // reset the entitlements
+	
+	uint16_t caid_to_use = reader->caid; // use configured/overridden CAID for entitlements
 
 	for(type = 0; type < 2; type++)
 	{
@@ -668,7 +682,7 @@ static int32_t conax_card_info(struct s_reader *reader)
 											txt[type], ++n, provid, chid, pdate, pdate + 16, trim(provname));
 
 									// add entitlements to list
-									cs_add_entitlement(reader, reader->caid, b2ll(4, reader->prid[0]),
+									cs_add_entitlement(reader, caid_to_use, b2ll(4, reader->prid[0]),
 											provid, cxclass, start_t, end_t, type + 1, 1);
 
 									k = 0;
@@ -691,7 +705,7 @@ static int32_t conax_card_info(struct s_reader *reader)
 							txt[type], ++n, provid, chid, pdate, pdate + 16, trim(provname));
 
 					// add entitlements to list
-					cs_add_entitlement(reader, reader->caid, b2ll(4, reader->prid[0]),
+					cs_add_entitlement(reader, caid_to_use, b2ll(4, reader->prid[0]),
 							provid, cxclass, start_t, end_t, type + 1, 1);
 				}
 			}

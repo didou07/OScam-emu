@@ -2581,6 +2581,7 @@ struct s_config
 #ifdef MODULE_SERIAL
 	struct s_twin	*twin_list;
 #endif
+	int8_t          task_enabled;
 };
 
 struct s_clientinit
