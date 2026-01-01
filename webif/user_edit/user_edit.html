@@ -3,26 +3,6 @@
 		var oscamconf = 'user';
 		existing_inserts = new Array(##EXISTING_INS##);
 	</script>
-	<script type="text/javascript">
-	function formatDate(d) {
-		let year = d.getFullYear();
-		let month = String(d.getMonth() + 1).padStart(2, '0');
-		let day = String(d.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
-	}
-
-	function setExp(value, type) {
-		let d = new Date();
-		if (type === 'D') {
-		d.setDate(d.getDate() + value);
-		} else if (type === 'M') {
-		d.setMonth(d.getMonth() + value);
-		} else if (type === 'Y') {
-		d.setFullYear(d.getFullYear() + value);
-		}
-		document.getElementById('expdate').value = formatDate(d);
-	}
-	</script>
 ##TPLBODY##
 ##TPLMENU##
 ##TPLMESSAGE##
@@ -34,18 +14,7 @@
 			<TR><TD><A>Password:</A></TD><TD><input name="pwd" class="longer" type="text" maxlength="63" value="##PASSWORD##"></TD></TR>
 			<TR><TD><A>Description:</A></TD><TD><input name="description" type="text" maxlength="256" value="##DESCRIPTION##"></TD></TR>
 			<TR><TD><A>Disabled:</A></TD><TD><input name="disabled" type="hidden" value="0"><input name="disabled" type="checkbox" value="1" ##DISABLEDCHECKED##><label></label></TD></TR>
-			<TR><TD><A>Exp. Date:</A></TD>
-				<TD>
-					<input name="expdate" id="expdate" class="medium" type="text" maxlength="30" value="##EXPDATE##">
-						<button type="button" onclick="setExp(1,'D')">1D</button>
-						<button type="button" onclick="setExp(1,'M')">1M</button>
-						<button type="button" onclick="setExp(3,'M')">3M</button>
-						<button type="button" onclick="setExp(6,'M')">6M</button>
-						<button type="button" onclick="setExp(1,'Y')">1Y</button>
-						<button type="button" onclick="setExp(2,'Y')">2Y</button>
-						<button type="button" onclick="setExp(3,'Y')">3Y</button>
-				</TD>
-			</TR>
+			<TR><TD><A>Exp. Date:</A></TD><TD><input name="expdate" class="medium" type="text" maxlength="30" value="##EXPDATE##"></TD></TR>
 			<TR><TD><A>Failban:</A></TD><TD><input name="failban" class="short" type="text" maxlength="1" value="##FAILBAN##"></TD></TR>
 			<TR><TD><A>Allowed Timeframe:</A></TD><TD>DAY<b>@</b>HH:MM-HH:MM[<b>,</b>HH:MM-HH:MM[<b>;</b>DAY<b>@</b>HH:MM-HH:MM[<b>,</b>HH:MM-HH:MM]]]<br>where DAY=SUN,MON,TUE,WED,THU,FRI,SAT,ALL<br><textarea name="allowedtimeframe" rows="5" maxlength="1000" class="bt" >##ALLOWEDTIMEFRAME##</textarea></TD></TR>
 			<TR><TD><A>Allowed Protocols:</A></TD><TD><input name="allowedprotocols" type="text" maxlength="60" value="##ALLOWEDPROTOCOLS##"></TD></TR>

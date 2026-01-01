@@ -174,12 +174,6 @@ static void refresh_entitlements(struct s_reader *rdr)
 		emu_add_entitlement(rdr, 0x2610, Biss2Keys.EmuKeys[i].provider, Biss2Keys.EmuKeys[i].key,
 							Biss2Keys.EmuKeys[i].keyName, Biss2Keys.EmuKeys[i].keyLength, 0);
 	}
-	
-	for (i = 0; i < ConaxKeys.keyCount; i++)
-	{
-		emu_add_entitlement(rdr, ConaxKeys.EmuKeys[i].provider, 0,
-							ConaxKeys.EmuKeys[i].key, ConaxKeys.EmuKeys[i].keyName, ConaxKeys.EmuKeys[i].keyLength, 0);
-	}
 
 	// RSA keys (EMM keys) for BISS2 mode CA
 	itr = ll_iter_create(rdr->ll_biss2_rsa_keys);
@@ -259,10 +253,10 @@ static int32_t emu_card_info(struct s_reader *rdr)
 	// Read BISS2 mode CA RSA keys from PEM files
 	biss_read_pem(rdr, BISS2_MAX_RSA_KEYS);
 
-	cs_log("Total keys in memory: W:%d V:%d N:%d I:%d F:%d G:%d O:%d P:%d T:%d A:%d C:%d",
+	cs_log("Total keys in memory: W:%d V:%d N:%d I:%d F:%d G:%d O:%d P:%d T:%d A:%d",
 			CwKeys.keyCount, ViKeys.keyCount, NagraKeys.keyCount, IrdetoKeys.keyCount, BissSWs.keyCount,
 			Biss2Keys.keyCount, OmnicryptKeys.keyCount, PowervuKeys.keyCount, TandbergKeys.keyCount,
-			StreamKeys.keyCount, ConaxKeys.keyCount);
+			StreamKeys.keyCount);
 
 	// Inform OSCam about all available keys.
 	// This is used for listing the "entitlements" in the webif's reader page.

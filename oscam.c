@@ -44,9 +44,6 @@
 #ifdef WITH_EMU
 	void add_emu_reader(void);
 #endif
-#ifdef WITH_ECMBIN
-	void add_ecmbin_reader(void);
-#endif
 
 #ifdef WITH_SSL
 #include <openssl/crypto.h>
@@ -143,11 +140,11 @@ static int32_t oscam_stacksize = 0;
 static void show_usage(void)
 {
 	printf("%s",
-		   "  ___  ____   ___\n"
-		   " / _ \\/ ___| / __|__ _ _ __ ___\n"
-		   "| | | \\___ \\| |  / _` | '_ ` _ \\\n"
-		   "| |_| |___) | |_| (_| | | | | | |\n"
-		   " \\___/|____/ \\___\\__,_|_| |_| |_|\n\n");
+			"  ___  ____   ___\n"
+			" / _ \\/ ___| / __|__ _ _ __ ___\n"
+			"| | | \\___ \\| |  / _` | '_ ` _ \\\n"
+			"| |_| |___) | |_| (_| | | | | | |\n"
+			" \\___/|____/ \\___\\__,_|_| |_| |_|\n\n");
 	printf("OSCam Cardserver v%s@%s (%s)\n", CS_VERSION, CS_GIT_COMMIT, CS_TARGET);
 	printf("Copyright (C) 2009-2025 OSCam developers.\n");
 	printf("This program is distributed under GPLv3.\n");
@@ -370,7 +367,7 @@ static void write_versionfile(bool use_stdout)
 		struct tm st;
 		time_t walltime = cs_time();
 		localtime_r(&walltime, &st);
-		fprintf(fp, "Unix Starttime: %ld\n", walltime);
+		fprintf(fp, "Unix Starttime: %" PRId64 "\n", (int64_t)walltime);
 		fprintf(fp, "Starttime:      %02d.%02d.%04d %02d:%02d:%02d\n",
 				st.tm_mday, st.tm_mon + 1, st.tm_year + 1900,
 				st.tm_hour, st.tm_min, st.tm_sec);
@@ -405,8 +402,9 @@ static void write_versionfile(bool use_stdout)
 #ifdef WITH_SIGNING
 	fprintf(fp, "\n");
 	fprintf(fp, "Signature:      %s\n", (osi.is_verified ? "Valid - successfully verified using built-in Public Key" : "Invalid - wrong signature or internal error occured!"));
+	fprintf(fp, "  Binary:       %s%s\n", osi.resolved_binfile, osi.binfile_exists ? "" : " is inaccessible!");
 	fprintf(fp, "  Signer:       %s\n", config_ssl);
-	fprintf(fp, "  SHA256:       %s\n", osi.hash_sha256);
+	fprintf(fp, "  SHA256:       %s\n", osi.hash_sha256 ? osi.hash_sha256 : "n/a");
 	fprintf(fp, "Certificate:    %s %s Certificate\n", ((osi.cert_is_valid_self || osi.cert_is_valid_system) ? "Trusted" : "Untrusted"), (osi.cert_is_cacert ? "CA" : "self signed"));
 	fprintf(fp, "  Subject:      %s\n", osi.cert_subject);
 	fprintf(fp, "  Issuer:       %s\n", osi.cert_issuer);
@@ -469,7 +467,6 @@ static void write_versionfile(bool use_stdout)
 #endif
 	write_conf(WITH_EMU, "Emulator support");
 	write_conf(WITH_SOFTCAM, "Built-in SoftCam.Key");
-	write_conf(WITH_ECMBIN, "ECM Emulator support");
 
 	fprintf(fp, "\n");
 	write_conf(MODULE_CAMD33, "camd 3.3x");
@@ -1107,7 +1104,7 @@ int32_t start_thread_nolog(char *nameroutine, void *startroutine, void *arg, pth
 	SAFE_ATTR_INIT(&attr);
 
 	if(modify_stacksize)
- 		{ SAFE_ATTR_SETSTACKSIZE(&attr, oscam_stacksize); }
+		{ SAFE_ATTR_SETSTACKSIZE(&attr, oscam_stacksize); }
 
 	int32_t ret = pthread_create(pthread == NULL ? &temp : pthread, &attr, startroutine, arg);
 	if(ret)
@@ -1318,7 +1315,7 @@ static void process_clients(void)
 			if(pfd[i].revents == 0) { continue; }  // skip sockets with no changes
 			rc--; //event handled!
 			cs_log_dbg(D_TRACE, "[OSCAM] new event %d occurred on fd %d after %"PRId64" ms inactivity", pfd[i].revents,
-						  pfd[i].fd, comp_timeb(&end, &start));
+						pfd[i].fd, comp_timeb(&end, &start));
 			//clients
 			cl = cl_list[i];
 			if(cl && !is_valid_client(cl))
@@ -1689,9 +1686,6 @@ const struct s_cardreader *cardreaders[] =
 #ifdef WITH_EMU
 	&cardreader_emu,
 #endif
-#ifdef WITH_ECMBIN
-	&cardreader_ecmbin,
-#endif
 
 	NULL
 };
@@ -1875,9 +1869,6 @@ int32_t main(int32_t argc, char *argv[])
 	init_readerdb();
 #ifdef WITH_EMU
 	add_emu_reader();
-#endif
-#ifdef WITH_ECMBIN
-	add_ecmbin_reader();
 #endif
 	cfg.account = init_userdb();
 	init_signal();

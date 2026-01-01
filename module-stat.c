@@ -41,7 +41,7 @@ void init_stat(void)
 	//checking config
 	if(cfg.lb_nbest_readers < 2)
 		{ cfg.lb_nbest_readers = DEFAULT_NBEST; }
-	if(cfg.lb_nfb_readers < 2)
+	if(cfg.lb_nfb_readers < 0)
 		{ cfg.lb_nfb_readers = DEFAULT_NFB; }
 	if(cfg.lb_min_ecmcount < 2)
 		{ cfg.lb_min_ecmcount = DEFAULT_MIN_ECM_COUNT; }
@@ -167,9 +167,9 @@ void load_stat_from_file(void)
 		}
 		else // Old format - keep for compatibility:
 		{
-			i = sscanf(line, "%255s rc %04d caid %04hX prid %06X srvid %04hX time avg %d ms ecms %d last %ld fail %d len %02hX\n",
-					   buf, &s->rc, &s->caid, &s->prid, &s->srvid,
-					   &s->time_avg, &s->ecm_count, &s->last_received.time, &s->fail_factor, &s->ecmlen);
+			i = sscanf(line, "%255s rc %04d caid %04hX prid %06X srvid %04hX time avg %d ms ecms %d last %" SCNd64 " fail %d len %02hX\n",
+						buf, &s->rc, &s->caid, &s->prid, &s->srvid,
+						&s->time_avg, &s->ecm_count, (int64_t *)&s->last_received.millitm, &s->fail_factor, &s->ecmlen);
 			valid = i > 5;
 		}
 
@@ -361,9 +361,9 @@ static void save_stat_to_file_thread(void)
 				//  s->srvid, s->time_avg, s->ecm_count, s->last_received, s->fail_factor, s->ecmlen);
 
 				//New version:
-				fprintf(file, "%s,%d,%04hX,%06X,%04hX,%04hX,%d,%d,%ld,%d,%02hX\n",
+				fprintf(file, "%s,%d,%04hX,%06X,%04hX,%04hX,%d,%d,%" PRId64 ",%d,%02hX\n",
 						rdr->label, s->rc, s->caid, s->prid,
-						s->srvid, (uint16_t)s->chid, s->time_avg, s->ecm_count, s->last_received.time, s->fail_factor, s->ecmlen);
+						s->srvid, (uint16_t)s->chid, s->time_avg, s->ecm_count, (int64_t)s->last_received.time, s->fail_factor, s->ecmlen);
 
 				count++;
 				//if(count % 500 == 0) { // Saving stats is using too much cpu and causes high file load. so we need a break
@@ -779,7 +779,7 @@ static int32_t get_nfb_readers(ECM_REQUEST *er)
 {
 	int32_t nfb_readers = er->client->account->lb_nfb_readers == -1 ? cfg.lb_nfb_readers : er->client->account->lb_nfb_readers;
 
-	if(nfb_readers <= 0) { nfb_readers = 1; }
+	if(nfb_readers <= 0) { nfb_readers = 0; }
 
 	return nfb_readers;
 }
@@ -897,7 +897,7 @@ void check_lb_auto_betatunnel_mode(ECM_REQUEST *er)
 
 uint16_t get_rdr_caid(struct s_reader *rdr)
 {
-	if(is_network_reader(rdr) || rdr->typ == R_EMU || rdr->typ == R_ECMBIN)
+	if(is_network_reader(rdr) || rdr->typ == R_EMU)
 	{
 		return 0; // reader caid is not real caid
 	}
@@ -939,7 +939,7 @@ static void reset_avgtime_reader(READER_STAT *s, struct s_reader *rdr)
 /* force_reopen=1 -> force opening of block readers
  * force_reopen=0 -> no force opening of block readers, use reopen_seconds
  */
-static void try_open_blocked_readers(ECM_REQUEST *er, STAT_QUERY *q, int32_t *max_reopen, int32_t *force_reopen)
+static void try_open_blocked_readers(ECM_REQUEST *er, STAT_QUERY *q, int32_t *max_reopen, int32_t force_reopen)
 {
 	struct s_ecm_answer *ea;
 	READER_STAT *s;
@@ -958,7 +958,7 @@ static void try_open_blocked_readers(ECM_REQUEST *er, STAT_QUERY *q, int32_t *ma
 		}
 
 		// if force_reopen we must active the "valid" reader
-		if(s->rc != E_FOUND && (*force_reopen) && cfg.lb_force_reopen_always)
+		if(s->rc != E_FOUND && force_reopen && cfg.lb_force_reopen_always)
 		{
 			cs_log_dbg(D_LB, "loadbalancer: force opening reader %s and reset fail_factor! --> ACTIVE", rdr->label);
 			ea->status |= READER_ACTIVE;
@@ -1288,7 +1288,7 @@ void stat_get_best_reader(ECM_REQUEST *er)
 		for(ea = er->matching_rdr; ea; ea = ea->next)
 		{
 			rdr = ea->reader;
-			if(is_network_reader(rdr) || rdr->typ == R_EMU || rdr->typ == R_ECMBIN) // reader caid is not real caid
+			if(is_network_reader(rdr) || rdr->typ == R_EMU) // reader caid is not real caid
 			{
 				prv = ea;
 				continue; // proxy can convert or reject
@@ -1659,6 +1659,11 @@ void stat_get_best_reader(ECM_REQUEST *er)
 		cs_log_dbg(D_LB, "loadbalancer: NO VALID MATCHING READER FOUND!");
 		force_reopen = 1;
 	}
+	else if(reader_active == 1 && cfg.double_check && is_double_check_caid(er, &cfg.double_check_caid))
+	{
+		cs_log_dbg(D_LB, "loadbalancer: ONLY 1 READER MATCHES AND DOUBLECHECK IS ENABLED!");
+		force_reopen = 1;
+	}
 	else if(retrylimit)
 	{
 		/*
@@ -1703,7 +1708,7 @@ void stat_get_best_reader(ECM_REQUEST *er)
 	}
 
 	//try to reopen max_reopen blocked readers (readers with last ecm not "e_found"); if force_reopen=1, force reopen valid blocked readers!
-	try_open_blocked_readers(er, &q, &max_reopen, &force_reopen);
+	try_open_blocked_readers(er, &q, &max_reopen, force_reopen);
 
 	cs_log_dbg(D_LB, "loadbalancer: --------------------------------------------");
 

@@ -728,7 +728,7 @@ static void add_cascade_data(struct s_client *client, ECM_REQUEST *er)
 	}
 }
 
-static int32_t is_double_check_caid(ECM_REQUEST *er, FTAB *double_check_caid)
+int32_t is_double_check_caid(ECM_REQUEST *er, FTAB *double_check_caid)
 {
 	if(!double_check_caid->nfilts) { return 1; }
 
@@ -1165,7 +1165,7 @@ int32_t send_dcw(struct s_client *client, ECM_REQUEST *er)
 			if(client->account->acosc_penalty_active > 0)
 			{
 				if(client->account->acosc_penalty_active == 4)
-					{ cs_log_dbg(D_TRACE, "[zaplist] ACoSC for Client: %s  penalty_duration: %ld seconds left(%s)", username(client), client->account->acosc_penalty_until - zaptime, info3); }
+					{ cs_log_dbg(D_TRACE, "[zaplist] ACoSC for Client: %s  penalty_duration: %" PRId64 " seconds left(%s)", username(client), (int64_t)(client->account->acosc_penalty_until - zaptime), info3); }
 
 				int16_t lt = get_module(client)->listenertype;
 				switch(penalty)
@@ -1691,50 +1691,6 @@ void update_chid(ECM_REQUEST *er)
 	er->chid = get_subid(er);
 }
 
-#define PATH_MAX_LEN 512
-#define CW_LENGTH 16
-
-static void logECMCWtoFileByReader(struct s_reader *reader, ECM_REQUEST *er, uint8_t *cw) {
-    if (!reader || !er || !cw || !reader->ecmcwlogdir || 
-        !reader->enable_ecmcw_logging || reader->typ == R_ECMBIN)
-        return;
-
-    char dir[PATH_MAX_LEN], filepath[PATH_MAX_LEN];
-    int ret = snprintf(dir, sizeof(dir), "%s/%s[%d#%d]",
-                       reader->ecmcwlogdir, reader->label,
-                       reader->record_ecm_start_byte, reader->record_ecm_end_byte);
-    if (ret >= (int)sizeof(dir)) return;
-
-    struct stat st;
-    if (stat(dir, &st) != 0 && mkdir(dir, 0755) != 0) return;
-
-    ret = snprintf(filepath, sizeof(filepath), "%s/%04X@%04X", dir, er->caid, er->srvid);
-    if (ret >= (int)sizeof(filepath)) return;
-
-    FILE *file = fopen(filepath, "a");
-    if (!file) return;
-
-    flockfile(file);
-
-    uint8_t start = reader->record_ecm_start_byte;
-    uint8_t end = (reader->record_ecm_end_byte > er->ecmlen) ? er->ecmlen : reader->record_ecm_end_byte;
-    if (start >= end) start = 0;
-
-    for (uint8_t i = start; i < end; i++)
-        fprintf(file, "%02X", er->ecm[i]);
-
-    fprintf(file, " #CW ");
-
-    for (int i = 0; i < CW_LENGTH; i++)
-        fprintf(file, "%02X", cw[i]);
-
-    fprintf(file, "\n");
-
-    fflush(file);
-    funlockfile(file);
-    fclose(file);
-}
-
 /*
  * This function writes the current CW from ECM struct to a cwl file.
  * The filename is re-calculated and file re-opened every time.
@@ -1957,7 +1913,7 @@ int32_t write_ecm_answer(struct s_reader *reader, ECM_REQUEST *er, int8_t rc, ui
 
 		if(chk_if_ignore_checksum(er, &reader->disablecrccws_only_for) && caid_is_videoguard(er->caid)
 #ifdef CS_CACHEEX_AIO
-		 && !chk_srvid_disablecrccws_only_for_exception(er)
+		&& !chk_srvid_disablecrccws_only_for_exception(er)
 #endif
 		)
 		{
@@ -2105,9 +2061,11 @@ int32_t write_ecm_answer(struct s_reader *reader, ECM_REQUEST *er, int8_t rc, ui
 	}
 #endif
 		// Update reader stats:
-		if(rc==E_FOUND && cw){
-		if(cfg.cwlogdir) logCWtoFile(er,cw);
-		if(reader && reader->enable_ecmcw_logging) logECMCWtoFileByReader(reader,er,cw);
+		if(ea->rc == E_FOUND)
+		{
+			if(cfg.cwlogdir != NULL)
+				{ logCWtoFile(er, ea->cw); } // CWL logging only if cwlogdir is set in config
+
 			reader->ecmsok++;
 #ifdef CS_CACHEEX_AIO
 			if(er->localgenerated)
@@ -2344,9 +2302,9 @@ void write_ecm_answer_fromcache(struct s_write_from_cache *wfc)
 		{
 			cs_log_dbg(D_LB,"{client %s, caid %04X, prid %06X, srvid %04X} [write_ecm_answer_fromcache] found cw in CACHE (count %d)!", (check_client(er->client)?er->client->account->usr:"-"),er->caid, er->prid, er->srvid,
 #ifdef CS_CACHEEX_AIO
-					 (er->cw_count > 0x0F000000) ? er->cw_count ^= 0x0F000000 : er->cw_count);
+					(er->cw_count > 0x0F000000) ? er->cw_count ^= 0x0F000000 : er->cw_count);
 #else
-					 er->cw_count);
+					er->cw_count);
 #endif
 			send_dcw(er->client, er);
 		}
@@ -2894,9 +2852,9 @@ OUT:
 
 	if(client->account && !client->account->no_wait_time
 #ifdef CS_CACHEEX_AIO
-			 && !chk_srvid_no_wait_time(er)
+			&& !chk_srvid_no_wait_time(er)
 #endif
-			 && er->preferlocalcards<2)
+			&& er->preferlocalcards<2)
 	{
 		wait_time_no_hitcache = get_cacheex_wait_time(er,NULL); // NO check hitcache. Wait_time is dwtime, or, if 0, awtime.
 		wait_time_hitcache = get_cacheex_wait_time(er,client); // check hitcache for calculating wait_time! If hitcache wait_time is biggest value between dwtime and awtime, else it's awtime.

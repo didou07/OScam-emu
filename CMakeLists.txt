@@ -550,16 +550,6 @@ if (WITH_EMU)
 	endif (CONFIG_WITH_SOFTCAM MATCHES "Y" AND NOT WITH_SOFTCAM EQUAL 1)
 endif (WITH_EMU)
 
-execute_process (COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/config.sh --enabled WITH_ECMBIN OUTPUT_VARIABLE CONFIG_WITH_ECMBIN OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-
-
-if (CONFIG_WITH_ECMBIN MATCHES "Y" AND NOT WITH_ECMBIN EQUAL 1)
-	add_definitions ("-DWITH_ECMBIN")
-	set (WITH_ECMBIN "1")
-	message (STATUS "  ECMBIN is added by config compiling with ECMBIN")
-endif (CONFIG_WITH_ECMBIN MATCHES "Y" AND NOT WITH_ECMBIN EQUAL 1)
-
 execute_process (COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/config.sh --show-valid OUTPUT_VARIABLE config_vars_string OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX MATCHALL "[A-Z0-9_]+" config_vars ${config_vars_string})
 
@@ -1041,9 +1031,5 @@ if (WITH_EMU)
 		message (STATUS "  SoftCam.Key will be linked as well")
 	endif (WITH_SOFTCAM)
 endif (WITH_EMU)
-
-if (WITH_ECMBIN)
-	message (STATUS "  Compile with ECMBIN support")
-endif (WITH_ECMBIN)
 
 message (STATUS "")

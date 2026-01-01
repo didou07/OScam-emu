@@ -369,10 +369,10 @@
  *			constants
  * =========================== */
 #define SCM_URL					"https://github.com/oscam-mirror/oscam-emu"
-#define WIKI_URL				"https://wiki.streamboard.tv/wiki"
+#define WIKI_URL				"https://git.streamboard.tv/common/oscam/-/wikis"
 #define BOARD_URL				"https://github.com/oscam-mirror/oscam-emu/discussions"
 #ifndef CS_VERSION
-#define CS_VERSION				"2.25.10-11891"
+#define CS_VERSION				"2.25.12-11907"
 #endif
 #ifndef CS_GIT_COMMIT
 #define CS_GIT_COMMIT			"a2b4c6d8"
@@ -457,7 +457,6 @@
 #define R_PCSC					0x8		// PCSC
 #define R_DRECAS				0x9		// Reader DRECAS
 #define R_EMU					0x17	// Reader EMU
-#define R_ECMBIN				0x19	// Reader ECMBIN
 /////// proxy readers after R_CS378X
 #define R_CAMD35				0x20	// Reader cascading camd 3.5x
 #define R_CAMD33				0x21	// Reader cascading camd 3.3x
@@ -1558,7 +1557,6 @@ struct s_reader										// contains device info, reader info and card info
 	int32_t			resetcounter;					// actual count
 	uint32_t		auprovid;						// AU only for this provid
 	int8_t			audisabled;						// exclude reader from auto AU
-	int8_t			needsemmfirst;					// 0: reader descrambles without emm first, 1: reader needs emms before it can descramble
 	struct timeb	emm_last;							// time of last successfully written emm
 	int8_t			smargopatch;
 	int8_t			autospeed;						// 1 clockspeed set according to atr f max
@@ -1573,10 +1571,6 @@ struct s_reader										// contains device info, reader info and card info
 	FTAB			fallback_percaid;
 	FTAB			localcards;
 	FTAB			disablecrccws_only_for;			// ignore checksum for selected caid provid
-	char            *ecmcwlogdir;
-	uint8_t         record_ecm_start_byte;
-	uint8_t         record_ecm_end_byte;
-	uint8_t         enable_ecmcw_logging;
 #ifdef READER_CRYPTOWORKS
 	int8_t			needsglobalfirst;				// 0:Write one Global EMM for SHARED EMM disabled 1:Write one Global EMM for SHARED EMM enabled
 #endif
@@ -1856,6 +1850,10 @@ struct s_reader										// contains device info, reader info and card info
 	uint8_t			VgCountryC[3];
 	uint8_t			VgRegionC[8];
 	uint8_t			VgLastPayload[6];
+	int32_t			card_startdate_basemonth;
+	int32_t			card_startdate_baseyear;
+	int32_t			card_expiredate_basemonth;
+	int32_t			card_expiredate_baseyear;
 #ifdef WITH_LB
 	int32_t			lb_weight;						// loadbalance weight factor, if unset, weight=100. The higher the value, the higher the usage-possibility
 	int8_t			lb_force_fallback;				// force this reader as fallback if fallback or fallback_percaid paramters set
@@ -1955,11 +1953,6 @@ struct s_reader										// contains device info, reader info and card info
 	FTAB			emu_auproviders;				// AU providers for Emu reader
 	int8_t			emu_datecodedenabled;			// date-coded keys for BISS
 	LLIST			*ll_biss2_rsa_keys;				// BISS2 RSA keys - Read from external PEM files
-#endif
-#ifdef WITH_ECMBIN
-	uint8_t		ecm_start;
-	uint8_t		ecm_end;
-	char		*ecm_path;
 #endif
 	uint8_t			cnxlastecm;						// == 0 - last ecm has not been paired ecm, > 0 last ecm has been paired ecm
 	LLIST			*emmstat;						// emm stats
@@ -2207,7 +2200,6 @@ struct s_config
 	char			*mailfile;
 	int8_t			disablecrccws;					// 1=disable cw checksum test. 0=enable checksum check
 	FTAB			disablecrccws_only_for;			// ignore checksum for selected caid provid
-	
 #ifdef CS_CACHEEX_AIO
 	uint8_t			cacheex_srcname_webif;			// show cacheex-srcname not cache3 in log
 #endif
@@ -2278,9 +2270,6 @@ struct s_config
 	int32_t			http_emmu_clean;
 	int32_t			http_emms_clean;
 	int32_t			http_emmg_clean;
-	int8_t          http_hide_users_disabled;
-	int8_t          http_hide_users_expired;
-	int8_t          http_blur_users_name;
 #endif
 	int8_t			http_full_cfg;
 	int8_t			http_overwrite_bak_file;
