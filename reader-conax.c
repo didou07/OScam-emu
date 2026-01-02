@@ -257,6 +257,7 @@ static int32_t conax_card_init(struct s_reader *reader, ATR *newatr)
 						0xff, 0xfb, 0x00, 0x00, 0x09, 0x04, 0x0b, 0x00, 0xe0, 0x30, 0x2b };
 
 	uint8_t cardver = 0;
+	uint16_t card_caid = 0; // CAID override: store card's original CAID
 
 	get_hist;
 	if((hist_size < 4) || (memcmp(hist, "0B00", 4)))
